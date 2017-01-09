@@ -1,0 +1,10 @@
+getwd()
+setwd("D:/MS BIA/1M. Linear Modelling - SPRING A 2016/Week 4/Data 8th Jan")
+ownership_data <- read.csv("D:/MS BIA/1M. Linear Modelling - SPRING A 2016/Week 4/Data 8th Jan/ownership_data.csv")
+
+attach(ownership_data)
+names(ownership_data)
+LPM <- lm(ownership~income)
+summary(LPM)
+anova(LPM)
+predict(LPM)
