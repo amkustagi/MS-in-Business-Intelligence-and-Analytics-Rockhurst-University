@@ -1,0 +1,1107 @@
+Reference Links:
+https://www.restapitutorial.com/httpstatuscodes.html
+https://www.youtube.com/watch?v=fNk_zzaMoSs&list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab
+https://realpython.com/python-keras-text-classification/
+https://arxiv.org/abs/1409.1556
+https://arxiv.org/abs/1608.06993
+https://www.youtube.com/watch?v=opaBjK4TfLc&list=PLkFD6_40KJIxJMR-j5A1mkxK26gh_qg37&index=25
+https://realpython.com/
+https://people.eecs.berkeley.edu/~jrs/189s19/
+http://rail.eecs.berkeley.edu/deeprlcourse/
+
+###################################################################################################################################################################
+# Software
+
+WinSCP - File transfer between servers
+Putty - Commands
+Oracle VM
+Beyond Compare
+Notepad ++
+Ultra Edit
+Spyder
+Jupyter notebook
+Postman
+Git Bash
+Robo3T
+MongoDB Compass
+VirtualBox-5.2.18-124319-Win
+Anaconda3-5.3.1-Windows-x86_64
+spring-tool-suite-3.9.7.RELEASE-e4.10.0-win32-x86_64 --- Java
+
+
+
+####################################################################################################################################################################
+Virtual Environment Creation and Activation:
+## In Windows :: > conda create --name mysite python=3.6
+
+Activate virtual Environment: source .venv/bin/activate  
+### In Windows --   > \path\to\env\Scripts\activate
+source .venv/bin/deactivate
+Install package: pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org fonduer==0.3.2
+
+
+1)	Create Environment :-
+python3 -m virtualenv env
+
+2)	Installing Required Python Packages to the Environment :-
+        pip install -r requirements.txt
+	Note:  ‘requirements.txt’ contains the names of python package to be installed in environment
+
+3)	Activate Environment :-
+source env/bin/activate 
+
+4)	Exit From Environment :-
+deactivate
+
+5)	Connect your Environment with Jupyter Notebook :-
+    ipython kernel install --user –name = env
+             
+            Note: ‘env’ is the environment name.
+6) Activate virtual environment
+start python Notebook:
+ipython notebook
+
+Start Spyder:
+spyder3 &
+
+
+#####################################################################################################################################################################
+Git Requests:
+git pull 
+git checkout dev
+git branch -a
+git pull origin dev # 
+
+#
+git checkout -b featuer/branch_name
+git add file_name
+git commit -m "with comments"
+git push origin
+
+
+##################################################################################################################################################################
+#Inception V3
+
+import numpy as np
+from keras.preprocessing.image import ImageDataGenerator
+from keras.models import Sequential
+from keras.layers import Dropout, Flatten, Dense
+from keras import applications
+from keras.callbacks import ModelCheckpoint
+import glob
+
+# dimensions of our images.
+img_width, img_height = 150, 150
+top_model_weights_path = 'bottleneck_fc_model.h5'
+train_data_dir = 'data/train'
+validation_data_dir = 'data/validation'
+input_shape = (img_width, img_height, 3)
+nb_train_samples = 0
+nb_validation_samples = 0
+epochs = 50
+batch_size = 16
+train_dataset_count = []
+validation_dataset_count = []
+
+
+for folder in ['Var_1','Var_2','Var_3','Var_4','Var_5']:
+    train_dataset_count.append(len(glob.glob1('data/train/'+folder,'*.jpg')))
+    nb_train_samples += len(glob.glob1('data/train/'+folder,'*.jpg'))
+    validation_dataset_count.append(len(glob.glob1('data/validation/'+folder,'*.jpg')))
+    nb_validation_samples+= len(glob.glob1('data/validation/'+folder,'*.jpg'))
+
+
+def save_bottlebeck_features():
+    datagen = ImageDataGenerator(rescale=1. / 255)
+
+    # build the InceptionV3 network
+    model = applications.InceptionV3(include_top=False, weights='imagenet', input_shape=input_shape)
+#     print(model.summary())
+    generator = datagen.flow_from_directory(
+        train_data_dir,
+        target_size=(img_width, img_height),
+        batch_size=batch_size,
+        class_mode=None,
+        shuffle=False)
+    bottleneck_features_train = model.predict_generator(generator, nb_train_samples//batch_size , verbose=1)
+    np.save(open('bottleneck_features_train.npy','wb'), bottleneck_features_train)
+
+    generator = datagen.flow_from_directory(
+        validation_data_dir,
+        target_size=(img_width, img_height),
+        batch_size=batch_size,
+        class_mode=None,
+        shuffle=False)
+    bottleneck_features_validation = model.predict_generator(generator, nb_validation_samples//batch_size, verbose=1)
+    np.save(open('bottleneck_features_validation.npy','wb'),
+            bottleneck_features_validation)
+save_bottlebeck_features()
+
+
+
+from keras import layers
+def train_top_model():
+    train_data = np.load(open('bottleneck_features_train.npy','rb')).reshape(nb_train_samples,-1)
+    train_labels = []
+    validation_labels = []
+    dummy_label = [0,0,0,0,0]
+    for i in range(0, len(train_dataset_count)):
+        dummy_label[i] = 1
+        for j in range(0, train_dataset_count[i]):
+            train_labels.append(dummy_label)
+        dummy_label = [0,0,0,0,0]
+        
+    train_labels = np.array(train_labels)
+    
+    validation_data = np.load(open('bottleneck_features_validation.npy','rb')).reshape(nb_validation_samples,-1)
+
+    for i in range(0, len(validation_dataset_count)):
+        dummy_label[i] = 1
+        for j in range(0, validation_dataset_count[i]):
+            validation_labels.append(dummy_label)
+        dummy_label = [0,0,0,0,0]
+        
+    validation_labels = np.array(validation_labels)
+    
+    print(validation_data.shape, train_data.shape)
+    model = Sequential()
+    model.add(Dense(256, input_dim=train_data.shape[1], activation='relu'))
+    model.add(layers.Dropout(0.5))
+    model.add(Dense(len(train_dataset_count), activation='sigmoid'))
+    model.compile(optimizer='sgd',loss='categorical_crossentropy', metrics=['accuracy'])
+    
+    checkpointer = ModelCheckpoint(filepath='./model_weight/weights.hdf5', verbose=1, monitor='val_loss', mode='min',save_best_only=True)
+    
+    model.fit(train_data, train_labels,
+              epochs=epochs,
+              batch_size=batch_size,
+              validation_data=(validation_data, validation_labels), verbose=1, shuffle=True,callbacks=[checkpointer])
+train_top_model()
+
+
+
+from tabula import read_pdf
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from pdf2image import convert_from_bytes, convert_from_path
+for i in range(1,20):
+    df = read_pdf("195592-195592M001-01012018.pdf", pages=i,output_format="json")
+    if len(df) != 0:
+        with open('195592-195592M001-01012018.pdf', 'rb') as pdf_file:
+            images_from_bytes = convert_from_bytes(pdf_file.read(), first_page=i, last_page=i)
+            images_from_bytes[0].save(str(i)+'.jpg', 'jpeg')
+            img=mpimg.imread('image_name.png')
+
+
+
+
+
+###################################################################################################################################################################
+
+Store the Trained models using .H5 file or pickle file
+
+Deeplearing Text models
+# Model 1: ANN - Sequential Model with CountVectorizer Apporach
+
+from keras.models import Sequential 
+from keras import layers 
+input_dim = X_train.shape[1] # Number of features
+model = Sequential()
+model.add(layers.Dense(10,input_dim = input_dim,activation='relu'))
+model.add(layers.Dense(1,activation='sigmoid'))
+
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+model.summary()
+
+history = model.fit(X_train, y_train, epochs=100, verbose=False, validation_data = (X_test,y_test), batch_size=15)
+
+loss,accuracy = model.evaluate(X_train,y_train,verbose=False)
+print("Training Accuracy: {:.4f}".format(accuracy))
+loss,accuracy = model.evaluate(X_test,y_test,verbose=False)
+print("Testing Accuracy:  {:.4f}".format(accuracy))
+
+
+import matplotlib.pyplot as plt
+plt.style.use('ggplot')
+
+def plot_history(history):
+    acc=history.history['acc']
+    val_acc=history.history['val_acc']
+    loss=history.history['loss']
+    val_loss=history.history['val_loss']
+    x=range(1,len(acc)+1)
+    plt.figure(figsize=(12,5))
+    plt.subplot(1,2,1)
+    plt.plot(x,acc,'b',label='Training acc')
+    plt.plot(x,val_acc,'r',label='Validation acc')
+    plt.title('Training and validation accuracy')
+    plt.legend()
+    plt.subplot(1,2,2)
+    plt.plot(x,loss,'b',label='Training loss')
+    plt.plot(x,val_loss,'r',label='Validation loss')
+    plt.title('Training and validation loss')
+    plt.legend()
+
+
+plot_history(history)
+
+
+
+
+
+# Method 2:  Word Embeddings :- Embedded the tokens of Bag of words
+
+sentences_train, sentences_test, y_train, y_test = model_selection.train_test_split(df['lemmaText'] ,y,test_size=0.25)
+
+from keras.preprocessing.text import Tokenizer 
+embedded_tokenizer = Tokenizer(num_words=5000)
+embedded_tokenizer.fit_on_texts(sentences_train)
+X_train = embedded_tokenizer.texts_to_sequences(sentences_train)
+X_test = embedded_tokenizer.texts_to_sequences(sentences_test)
+
+
+vocab_size = len(embedded_tokenizer.word_index) + 1
+
+from keras.preprocessing.sequence import pad_sequences
+maxlen = 100
+X_train = pad_sequences(X_train,padding='post',maxlen = maxlen)
+X_test = pad_sequences(X_test,padding='post',maxlen = maxlen)
+print(X_train[0,:])
+
+
+### 1a. Flatten layer added between Embeddings and Dense
+
+from keras.models import Sequential 
+from keras import layers 
+embedding_dim = 50
+model = Sequential()
+model.add(layers.Embedding(input_dim = vocab_size,output_dim = embedding_dim,input_length=maxlen))
+model.add(layers.Flatten())
+model.add(layers.Dense(10,activation='relu'))
+model.add(layers.Dense(1,activation='sigmoid'))
+model.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])
+model.summary()
+
+
+
+history = model.fit(X_train,y_train,epochs=100,verbose = False,validation_data=(X_test,y_test),batch_size=10)
+loss, accuracy = model.evaluate(X_train,y_train,verbose=False)
+print("Training Accuracy: {:.4f}".format(accuracy))
+loss,accuracy = model.evaluate(X_test,y_test,verbose=False)
+print("Testing Accuracy:  {:.4f}".format(accuracy))
+plot_history(history)
+
+
+### 1a. GlobalMaxPooling1D/GlobalAveragePooling1D layer added between Embeddings and Dense
+
+from keras.models import Sequential 
+from keras import layers 
+embedding_dim = 50 
+model = Sequential()
+model.add(layers.Embedding(input_dim=vocab_size,output_dim=embedding_dim,input_length=maxlen))
+model.add(layers.GlobalMaxPool1D())
+model.add(layers.Dense(10,activation='relu'))
+model.add(layers.Dense(1,activation='sigmoid'))
+model.compile(optimizer='adam',loss='binary_crossentropy',metrics=['accuracy'])
+model.summary()
+
+
+history = model.fit(X_train,y_train,epochs=50,verbose=False,validation_data=(X_test,y_test),batch_size=10)
+loss,accuracy = model.evaluate(X_train,y_train,verbose=False)
+print("Training Accuracy: {:.4f}".format(accuracy))
+loss,accuracy = model.evaluate(X_test,y_test,verbose=False)
+print("Testing Accuracy:  {:.4f}".format(accuracy))
+plot_history(history)
+
+
+# Model 3: GloVe word embeddings from the Stanford NLP 
+
+import numpy as np 
+def create_embedding_matrix(filepath,word_index,embedding_dim):
+    vocab_size=len(word_index)+1 # Adding again 1 because of reserved 0 index 
+    embedding_matrix=np.zeros((vocab_size,embedding_dim))
+    with open(filepath)as f:
+        for line in f:
+            word,*vector=line.split()
+            if word in word_index:
+                idx=word_index[word]embedding_matrix[idx]=np.array(vector,dtype=np.float32)[:embedding_dim]returnembedding_matrix
+
+
+##################################################################################################################################################################
+
+#Majority Voting
+#A form of Stacking
+#Note you don't have to put in the packages each time, only once per session
+
+
+from sklearn.model_selection import train_test_split, cross_val_score, KFold , GridSearchCV
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import VotingClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.cluster import KMeans as KNN
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.svm import SVR as SVR 
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import ExtraTreesClassifier as ExtraTreesClassifier 
+
+#Three Models Log Reg, RF and NB
+clf1 = KNeighborsClassifier(algorithm='kd_tree', leaf_size=1, metric='cityblock',
+           metric_params=None, n_jobs=1, n_neighbors=1, p=2,
+           weights='uniform')
+
+clf2 = DecisionTreeClassifier(class_weight=None, criterion='gini', max_depth=10,
+            max_features=None, max_leaf_nodes=None,
+            min_impurity_split=1e-07, min_samples_leaf=1,
+            min_samples_split=2, min_weight_fraction_leaf=0.5,
+            presort=False, random_state=None, splitter='best')
+
+clf3 = RandomForestClassifier(bootstrap=True, class_weight=None, criterion='gini',
+            max_depth=None, max_features=3, max_leaf_nodes=None,
+            min_impurity_split=1e-07, min_samples_leaf=1,
+            min_samples_split=2, min_weight_fraction_leaf=0.0,
+            n_estimators=100, n_jobs=-1, oob_score=False,
+            random_state=True, verbose=0, warm_start=False)
+
+clf4 = SVC(C=1000, cache_size=10, class_weight=None, coef0=0.0,
+          decision_function_shape=None, degree=1, gamma=3, kernel='rbf',
+          max_iter=-1, probability=True, random_state=None, shrinking=True,
+          tol=0.001, verbose=False)
+
+
+clf5 = SGDClassifier(alpha=1e-06, average=False, class_weight='balanced',
+       epsilon=0.1, eta0=0.0, fit_intercept=True, l1_ratio=0.15,
+       learning_rate='optimal', loss='modified_huber', n_iter=1000,
+       n_jobs=-1, penalty='l2', power_t=0.5, random_state=None,
+       shuffle=True, verbose=0, warm_start=False)
+
+clf6 = MultinomialNB(alpha=1.0, class_prior=None, fit_prior=True)
+
+clf7 = ExtraTreesClassifier(bootstrap=True, class_weight=None, criterion='entropy',
+           max_depth=None, max_features='auto', max_leaf_nodes=None,
+           min_impurity_split=1e-07, min_samples_leaf=1,
+           min_samples_split=2, min_weight_fraction_leaf=0.0001,
+           n_estimators=50, n_jobs=1, oob_score=False, random_state=None,
+           verbose=0, warm_start=False)
+clf8 = GaussianNB()
+
+
+eclf = VotingClassifier(estimators=[('KNN', clf1), ('DT', clf2), ('RF', clf3),('SVC', clf4), ('SGD', clf5),
+                                    ('NaiveBayes', clf6),('ExtraTrees', clf7), ('GausianNB', clf8)], voting='soft')
+
+for MV, label in zip([clf1, clf2, clf3, clf4, clf5, 
+                      clf6, clf7,clf8, eclf], 
+                     ['KNN', 'Decision Tree', 'Random Forest',
+                    'SVC', 'Stochastic Gradient Descent',
+                    'Naive Bayes','Extra Tree','GaussianNB', 'Ensemble']):
+
+    scores = cross_val_score(MV, features_train, target_train, cv=10, scoring='accuracy')
+    print("Accuracy: %0.3f (+/- %0.3f) [%s]" % (scores.mean(), scores.std(), label))
+
+
+###################################################################################################################################################################
+MongoDB Scrips:
+Findining:
+db.getCollection("nlp_benefits_relatedServices").find({"doc.source" : "195374-195374M001-12012018"}) 
+db.getCollection('nlpBenefitsView').find({'source':'196567-196567H001-11012018', 'data.service.name':'Convalescent Care'})
+
+Distinct:
+db.getCollection("nlp_benefits_relatedServices").distinct({"doc.data.benefits.categories.category"}) 
+
+
+Query for verification
+DBQuery.shellBatchSize = 600;
+db.getCollection('nlp_benefits_relatedServices').aggregate([
+{$unwind: "$doc"},
+{$unwind: "$doc.data"},
+{$unwind: "$doc.data.benefits"},
+{$unwind: "$doc.data.benefits.networks"},
+{$unwind: "$doc.data.benefits.networks.costShares"},
+{$match: {"doc.data.benefits.name": "Prenatal Care"}},
+//{$match: {"data.medicalServices.srvcNtwrk.srvcNtwrkLbl": { $regex : /Tier/}}},
+//{$match: {"data.medicalServices.srvcNtwrk.costShare": { $regex : /first/}}},
+//{$match: {"data.medicalServices.srvcNtwrk.costShare": { $regex : /global/}}},
+  {"$group":{
+    "_id":{"source":"$doc.source"},
+     networkType: {$push : "$doc.data.benefits.networks.type"}, 
+     serviceName: {$push : "$doc.data.benefits.networks.costShares"},    
+    "count":{"$sum":1}
+  }},
+])
+
+
+
+
+############################################################################################################################################################
+
+
+from pymongo import MongoClient
+from urllib.parse import urlparse
+import pandas as pd
+import urllib
+
+
+def _connect_mongo(host, port, username, password, db):
+    """ A util for making a connection to mongo """
+
+    if username and password:
+        mongo_uri = 'mongodb://%s:%s@%s:%s/%s' % (username, password, host, port, db)
+        conn = MongoClient(mongo_uri, ssl=True, ssl_ca_certs='root_chain.pem')
+        # print("Connected to:", db)
+    else:
+        conn = MongoClient(host, port)
+        # print("Connected to:", db)
+    return conn[db]
+
+
+def override(_db, collection, doc_key, df):
+    cursor = _db[collection].find()
+    count = 0
+    for doc in cursor:
+        count = count + 1
+        # if row["EOC Name"].lower() == "all":
+        #     cursor = _db[collection].find()
+        # else:
+        #     cursor = _db[collection].find({"doc.source":row["EOC Name"]})
+        for index, row in df.iterrows():
+            try:
+                if row["Change Type"].lower() == "remove":
+                    if row["Label"].lower() == "service":
+                        for benefit in doc["doc"]["data"]["benefits"]:
+                            new_components = [component for component in benefit["components"] if
+                                              component["name"].lower() != row["From"].lower()]
+                            benefit["components"] = new_components
+                        #_db[collection].update({"_id": doc["_id"]}, doc)
+                        for benefit in doc["doc"]["data"]["benefits"]:
+                            for category in benefit["categories"]:
+                                new_components = [component for component in category["components"] if
+                                                  component["name"].lower() != row["From"].lower()]
+                                category["components"] = new_components
+                        #_db[collection].update({"_id": doc["_id"]}, doc)
+                        for benefit in doc["doc"]["data"]["benefits"]:
+                            for service in benefit["related"]["services"]:
+                                new_components = [component for component in service["components"] if
+                                                  component["name"].lower() != row["From"].lower()]
+                                service["components"] = new_components
+                #_db[collection].update({"_id": doc["_id"]}, doc)
+
+                if row["Change Type"].lower() == "over ride":
+                    if row["Label"].lower() == "service":
+                        for benefit in doc["doc"]["data"]["benefits"]:
+                            if any(i["name"].lower() == row["From"].lower() for i in benefit["components"]):
+                                new_components = [component for component in benefit["components"] if
+                                                  component["name"].lower() != row["From"].lower()]
+                                for i in row["To"].split(","):
+                                    new_components.append({"name": i.strip(), "serviceClassifications": []})
+                                benefit["components"] = new_components
+                        #_db[collection].update({"_id": doc["_id"]}, doc)
+                        for benefit in doc["doc"]["data"]["benefits"]:
+                            for category in benefit["categories"]:
+                                if any(i["name"].lower() == row["From"].lower() for i in category["components"]):
+                                    new_components = [component for component in category["components"] if
+                                                      component["name"].lower() != row["From"].lower()]
+                                    for i in row["To"].split(","):
+                                        new_components.append({"name": i.strip(), "serviceClassifications": []})
+                                    category["components"] = new_components
+                        #_db[collection].update({"_id": doc["_id"]}, doc)
+                        for benefit in doc["doc"]["data"]["benefits"]:
+                            for service in benefit["related"]["services"]:
+                                if any(i["name"].lower() == row["From"].lower() for i in service["components"]):
+                                    new_components = [component for component in service["components"] if
+                                                      component["name"].lower() != row["From"].lower()]
+                                    for i in row["To"].split(","):
+                                        new_components.append({"name": i.strip(), "serviceClassifications": []})
+                                    service["components"] = new_components
+            except:
+                print(doc["doc"]["source"])
+        _db[collection].update({"_id": doc["_id"]}, doc)
+        print(count, doc["doc"]["source"])
+
+
+
+try:
+    username = urllib.pathname2url('srcsoarw')
+    password = urllib.pathname2url('@nthemTmdb')
+except:
+    username = urllib.parse.quote_plus('srcsoarw')
+    password = urllib.parse.quote_plus('@nthemTmdb')
+
+collection1 = "nlpBenefitsFinalNV158"
+print(collection1)
+_db = _connect_mongo(host="va33dlvmdb001.wellpoint.com", port=37043, username=username, password=password, db="SOAMDB")
+print("connected")
+df_override = pd.read_excel("override1.xlsx", names=["EOC Name", "Change Type", "Label", "From", "To"])
+print("loaded")
+override(_db, collection1, "", df_override)
+
+
+
+
+############################################################################################################################################################
+
+
+
+from bs4 import BeautifulSoup as BS
+import falcon
+import json
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.naive_bayes import MultinomialNB
+import pandas as pd
+from sklearn.feature_selection import chi2
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from nltk.tokenize import word_tokenize
+from nltk.tokenize import sent_tokenize
+from nltk import pos_tag as pos_tagger
+from fuzzywuzzy import process
+import logging
+import re
+from waitress import serve
+"""
+Loading master benefit list with Pandas
+    """
+
+logging.basicConfig(filename='nouns5.log', level=logging.DEBUG)
+logging.info("START")
+df1 = pd.read_excel("Master benefit list.xlsx", names=["Categories"])
+df1["Categories"] = df1["Categories"].apply(lambda x: x.lower())
+df1["Categories"] = df1["Categories"].apply(lambda x: x.strip())
+master_list = df1["Categories"].values
+
+"""
+training intent model
+"""
+
+df = pd.read_excel('train1.xlsx', names=['Text', 'Intent'])
+df['category_id'] = df['Intent'].factorize()[0]
+category_id_df = df[['Intent', 'category_id']].drop_duplicates().sort_values('category_id')
+category_to_id = dict(category_id_df.values)
+id_to_category = dict(category_id_df[['category_id', 'Intent']].values)
+tfidf = TfidfVectorizer(sublinear_tf=True, min_df=5, norm='l2', encoding='latin-1', ngram_range=(1, 2))
+
+features = tfidf.fit_transform(df.Text.fillna(' ')).toarray()
+labels = df.Intent
+
+N = 2
+for classs, category_id in sorted(category_to_id.items()):
+    features_chi2 = chi2(features, labels == category_id)
+    indices = np.argsort(features_chi2[0])
+    feature_names = np.array(tfidf.get_feature_names())[indices]
+    unigrams = [v for v in feature_names if len(v.split(' ')) == 1]
+    bigrams = [v for v in feature_names if len(v.split(' ')) == 2]
+    # print("# '{}':".format(classs))
+    # print("  . Most correlated unigrams:\n. {}".format('\n. '.join(unigrams[-N:])))
+    # print("  . Most correlated bigrams:\n. {}".format('\n. '.join(bigrams[-N:])))
+
+X_train, X_test, y_train, y_test = train_test_split(df['Text'], df['Intent'], random_state=0)
+count_vect = CountVectorizer()
+X_train_counts = count_vect.fit_transform(X_train.fillna(' '))
+tfidf_transformer = TfidfTransformer()
+X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
+clf = MultinomialNB().fit(X_train_tfidf, y_train)
+
+"""
+Preprocessing the text
+"""
+
+def preprocess(z):
+    spl_char = [",", "-", "(", ")", "&", "/"]
+    a = str(z)
+    a.replace("."," ")
+    for i in spl_char:
+        if i in z:
+            # print(z, i)
+            a = a.strip()
+            a = a.replace("  ", " ")
+            a = a.replace(i + " ", i)
+            a = a.replace(" " + i, i)
+    return a.lower()
+
+"""
+Benefit configuration file
+"""
+
+df_config = pd.read_excel("benefit_configuration.xlsx",names=["sentence","notes heading","override type","Intent","Service name"])
+df_config["notes heading"] = df_config["notes heading"].apply(lambda x: preprocess(x))
+df_config["sentence"] = df_config["sentence"].apply(lambda x: preprocess(x))
+df_config["Intent"] = df_config["Intent"].apply(lambda x: preprocess(x))
+print("loaded")
+
+def benefit_config(text,heading,inclusion,exclusion):
+    text = preprocess(text)
+    inclusion = [preprocess(x) for x in inclusion]
+    exclusion = [preprocess(x) for x in exclusion]
+    x = df_config[df_config["notes heading"] == preprocess(heading)]
+    for index, row in x.iterrows():
+        if row["sentence"] in text:
+            if row["override type"].lower() == "remove":
+                if row["Intent"] == "inclusion":
+                    values = [x.lower() for x in row["Service name"].split(",")]
+                    values = [x.strip() for x in values]
+                    inclusion = [i for i in inclusion if i not in values]
+                elif row["Intent"] == "exclusion":
+                    values = [x.lower() for x in row["Service name"].split(",")]
+                    values = [x.strip() for x in values]
+                    exclusion = [i for i in exclusion if i not in values]
+            if row["override type"].lower() == "add":
+                if row["Intent"] == "inclusion":
+                    values = [x.lower() for x in row["Service name"].split(",")]
+                    values = [x.strip() for x in values]
+                    inclusion = inclusion + values
+                    print(values)
+                elif row["Intent"] == "exclusion":
+                    values = [x.lower() for x in row["Service name"].split(",")]
+                    values = [x.strip() for x in values]
+                    exclusion = exclusion + values
+    inclusions = []
+    exclusions = []
+    for s in inclusion:
+        if not any([s in r for r in inclusion if s != r]):
+            inclusions.append(s.title())
+    for s in exclusion:
+        if not any([s in r for r in exclusion if s != r]):
+            exclusions.append(s.title())
+    return [inclusions,exclusions]
+
+def intent(sent):
+    probability = (max(clf.predict_proba(count_vect.transform([sent]))[0]) * 100)
+    if probability > 90:
+        intennt = clf.predict(count_vect.transform([sent]))[0]
+    else:
+        intennt = "note"
+    return intennt
+
+
+"""
+Extracting nouns from text
+"""
+
+def nouns_extract(text):
+    noun_pos_tags = ["NN", "NNS", "NNP", "NNPS", "CC", "JJ", "IN", "VBG"]
+    text.replace("  ", " ")
+    nouns = []
+    for sentence in sent_tokenize(text):
+        text1 = sentence.lower()
+        tokens = word_tokenize(text1)
+        pos = pos_tagger(tokens)
+        final_noun_list = []
+        for i in range(len(pos)):
+            if pos[i][1] in noun_pos_tags:
+                if i > 0:
+                    if pos[i - 1][1] not in noun_pos_tags:
+                        final_noun_list.append(pos[i][0])
+                    else:
+                        final_noun_list[-1] += ' ' + pos[i][0]
+                else:
+                    final_noun_list.append(pos[i][0])
+        for i in final_noun_list:
+            nouns.append(i)
+        if len(nouns) == 0:
+            nouns.append(" ".join(final_noun_list))
+    return nouns
+
+"""
+Finding the Best match from master benefit list
+"""
+
+def best_match(nouns):
+    benefits = []
+    updated_nouns = []
+    for i in nouns:
+        for noun in re.split(" and | or |, | as |[.]", i):
+            if "except" not in word_tokenize(noun.strip()):
+                updated_nouns.append(noun.strip())
+    total = list(set(nouns + updated_nouns))
+    for text in total:
+        refined_search_keys = [x for x in word_tokenize(text)]
+        if len(refined_search_keys) > 0:
+            names = df1['Categories'][df1.Categories.str.contains('|'.join(refined_search_keys))].values
+            if len(names) > 0:
+                if (process.extractOne(text.strip(), names)[1]) > 90:
+                    benefits.append(str(process.extractOne(text.strip(), names)[0].title()))
+                else:
+                    logging.info(str(text) + str(process.extractOne(text.strip(), names)[1]))
+    out = []
+    for s in benefits:
+        if not any([s in r for r in benefits if s != r]):
+            out.append(s)
+    return out
+
+
+"""
+Prepocessing and extracting all the values from the nested dictionaries in the raw json structure
+"""
+
+def NestedDictValues(d):
+    for value in d.values():
+        if isinstance(value, dict):
+            yield from NestedDictValues(value)
+        if isinstance(value, list):
+            for i in value:
+                yield from NestedDictValues(i)
+        elif isinstance(value, str):
+            if re.match('[^?!.]*[?.:;!]$', value.strip()) is None:
+                value = value + "."
+                value = re.sub('[*]', ' ', value)
+                value = value.replace("..",".")
+                value = value.replace(":.", ":")
+                yield value.strip()
+            else:
+                value = re.sub('[*]', ' ', value)
+                yield value.strip()
+        else:
+            yield value
+
+
+"""
+Splitting notes based on intent and extracting services from sub-headings
+"""
+
+def note_split(content):
+    if isinstance(content, dict):
+        if "subContent" in content.keys():
+            try:
+                soup = BS(content["text"], features="html.parser")
+                heading1 = soup.b.string
+                heading = heading1
+            except:
+                heading = content["text"]
+            if heading.lower() in master_list:
+                tag = "service_name"
+            else:
+                tag = "heading"
+            text = []
+            for i in content["subContent"]:
+                if list(i.keys()) == ["text", "list"]:
+                    text.append(" ".join(list(NestedDictValues(i))))
+                elif (i.keys()) == ["list"]:
+                    text.append(" ".join(list(NestedDictValues(i))))
+                else:
+                    for note in list(NestedDictValues(i)):
+                        text.append(note)
+        else:
+            text = []
+            tag = None
+            heading = ""
+            if list(content.keys()) == ["text", "list"]:
+                text.append(" ".join(list(NestedDictValues(content))))
+            elif list(content.keys()) == ["list"]:
+                text.append(" ".join(list(NestedDictValues(content))))
+            else:
+                for note in list(NestedDictValues(content)):
+                    text.append(note)
+
+        if len(text) > 1:
+            split = []
+            split.append(text[0])
+            for notes in text[1:]:
+                if intent(notes) == intent(split[-1]):
+                    split[-1] = split[-1] + notes
+                else:
+                    split.append(notes)
+        else:
+            split = text
+        return [tag, heading, split]
+
+"""
+Appending the results to the structure
+"""
+
+def notes_structure(d, head):
+    main_heading = head
+    tag = note_split(d)[0]
+    heading = note_split(d)[1]
+    split = note_split(d)[2]
+    final = []
+    if tag != None:
+        headin = {}
+        headin[tag] = heading
+        notes = []
+        for i in split:
+            sample = {}
+            if "exclusions" in heading.lower():
+                heading = heading.lower()
+                if heading.split(" exclusions")[0] in main_heading.lower():
+                    sample["type"] = "Exclusion"
+                    typ = "Exclusion"
+                elif heading.lower() in ["limitations and exclusions","general exclusions"]:
+                    sample["type"] = "Exclusion"
+                    typ = "Exclusion"
+                else:
+                    sample["type"] = "Exclusion"
+                    typ = "Serv_Exclusion"
+            elif "exclusions" in main_heading.lower():
+                sample["type"] = "Exclusion"
+                typ = "Exclusion"
+            elif "include" in heading.lower():
+                sample["type"] = "Inclusion"
+                typ = "Inclusion"
+            elif ":" in i:
+                sample["type"] = intent(i.split(":")[0])
+                typ = intent(re.split("[:]", i)[0])
+                sample["probability"] = (max(clf.predict_proba(count_vect.transform([re.split("[:]", i)[0]]))[0]) * 100)
+            else:
+                sample["type"] = intent(i)
+                sample["probability"] = (max(clf.predict_proba(count_vect.transform([i]))[0]) * 100)
+                typ = intent(i)
+            sample["text"] = i
+            inclusion = []
+            exclusion = []
+            for sent in sent_tokenize(i):
+                if any(i in word_tokenize(sent) for i in ["include", "includes"]):
+                    if typ not in ["note", "Exclusion", "Serv_Exclusion"]:
+                        inclusion = inclusion + list(set(best_match(nouns_extract(sent))))
+            if typ == "Exclusion":
+                exclusion = exclusion + list(set(best_match(nouns_extract(i))))
+            elif typ == "Serv_Exclusion":
+                heading = heading.lower()
+                serv = heading.split(" exclusions")[0]
+                exc = [str(serv.strip() + " - " + x).title() for x in list(set(best_match(nouns_extract(i)))) if
+                       x.lower() not in heading]
+                exclusion = exclusion + exc
+            elif typ == "Inclusion":
+                if tag == "service_name":
+                    inclusion1 = list(set(best_match(nouns_extract(i))))
+                    inclusion = [str(heading + " - " + x).title() for x in inclusion1 if
+                                 x.lower() not in heading.lower()]
+                else:
+                    inclusion = inclusion + list(set(best_match(nouns_extract(i))))
+            exclusion = list(set(exclusion) - set(inclusion))
+            inclusions = benefit_config(i,main_heading,inclusion,exclusion)[0]
+            exclusions = benefit_config(i,main_heading,inclusion,exclusion)[1]
+            sample["inclusions"] = [x for x in list(set(inclusions)) if x.lower() not in main_heading.lower()]
+            sample["exclusions"] = [x for x in list(set(exclusions)) if x.lower() not in main_heading.lower()]
+            notes.append(sample)
+        headin["notes"] = notes
+        final.append(headin)
+    else:
+        for i in split:
+            i.replace("*", " ")
+            sample = {}
+            if "exclusions" in main_heading.lower():
+                sample["type"] = "Exclusion"
+                typ = "Exclusion"
+            elif ":" in i:
+                sample["type"] = intent(i.split(":")[0])
+                typ = intent(re.split("[:]", i)[0])
+                sample["probability"] = (max(clf.predict_proba(count_vect.transform([re.split("[:]", i)[0]]))[0]) * 100)
+            else:
+                sample["type"] = intent(i)
+                typ = intent(i)
+                sample["probability"] = (max(clf.predict_proba(count_vect.transform([i]))[0]) * 100)
+            sample["text"] = i
+            inclusion = []
+            exclusion = []
+            for sent in sent_tokenize(i):
+                if any(i in word_tokenize(sent) for i in ["include", "includes"]):
+                    if typ not in ["note", "Exclusion"]:
+                        inclusion = inclusion + list(set(best_match(nouns_extract(sent))))
+            if typ == "Exclusion":
+                exclusion = exclusion + list(set(best_match(nouns_extract(i))))
+            elif typ == "Inclusion":
+                inclusion = inclusion + list(set(best_match(nouns_extract(i))))
+            exclusion = list(set(exclusion) - set(inclusion))
+            inclusions = benefit_config(i, main_heading, inclusion, exclusion)[0]
+            exclusions = benefit_config(i, main_heading, inclusion, exclusion)[1]
+            sample["inclusions"] = [x for x in list(set(inclusions))]
+            sample["exclusions"] = [x for x in list(set(exclusions)) if x.lower() not in main_heading.lower()]
+            sample["probability"] = (max(clf.predict_proba(count_vect.transform([i]))[0]) * 100)
+            final.append(sample)
+    return [tag, final]
+
+"""
+Falcon API
+"""
+
+
+class Notes_split(object):
+    def on_post(self, req, resp):
+        doc = json.load(req.bounded_stream)
+        result = {}
+        result["Doc_id"] = doc["Doc_id"]
+        logging.info(str(doc["Doc_id"]))
+        services = []
+        for np in doc["notes"]:
+            sample_service = {}
+            sample_service["category_name"] = note["heading"]
+            head = note["heading"]
+            services1 = []
+            notes1 = []
+            for dic in note["content"]:
+                if dic["text"].lower() == "<b>limitations and exclusions</b>":
+                    for i in notes_structure(dic, head)[1]:
+                        #print(i)
+                        alt = "Services in this category include, but are not limited to, holistic medicine, homeopathy, hypnosis, aromatherapy, massage therapy, reike therapy, herbal medicine, vitamin or dietary products or therapies, naturopathy, thermography, orthomolecular therapy, contact reflex analysis, bioenergial synchronization technique (BEST), clonics or iridology"
+                        note_alt = i["notes"][0]
+                        print(note_alt)
+                        alt_text = note_alt["text"]
+                        if alt.lower() in alt_text.lower():
+                            note_alt["text"] = note_alt["text"].replace(alt," ")
+                            note_alt["text"] = note_alt["text"].replace("Alternative or complementary medicine.", " ")
+                            note_alt["text"] = note_alt["text"].replace("  ","")
+                            note_alt["exclusions"] = [i for i in note_alt["exclusions"] if i not in list(set(best_match(nouns_extract(alt))))]
+                            notes1.append(i)
+                            alt_service = {}
+                            alt_service["service_name"] = "Alternative or complementary medicine"
+                            notes = [{"type":"Exclusion","text":alt,"inclusions":[],"exclusions":list(set(best_match(nouns_extract(alt))))}]
+                            alt_service["notes"] = notes
+                            services1.append(alt_service)
+                        else:
+                            notes1.append(i)
+                elif (notes_structure(dic, head)[0]) == "service_name":
+                    for i in notes_structure(dic, head)[1]:
+                        services1.append(i)
+                else:
+                    for i in notes_structure(dic, head)[1]:
+                        notes1.append(i)
+            sample_service["services"] = services1
+            sample_service["notes"] = notes1
+            services.append(sample_service)
+        result["services"] = services
+        result = json.dumps(result)
+        resp.status = falcon.HTTP_200  # This is the default status
+        resp.body = result
+
+
+api = application = falcon.API()
+notesSplit = Notes_split()
+api.add_route('/notes_split', notesSplit)
+
+serve(api, host='localhost', port=9090)
+
+
+#########################################################################################################
+
+https://ustglobal.sharepoint.com/Home/SitePages/Home.aspx
+https://idp.ust-global.com/adfs/ls/
+
+
+########################################################################################################
+# Convolutional Neural Network
+
+# Installing Theano
+# pip install --upgrade --no-deps git+git://github.com/Theano/Theano.git
+
+# Installing Tensorflow
+# pip install tensorflow
+
+# Installing Keras
+# pip install --upgrade keras
+
+# Part 1 - Building the CNN
+
+# Importing the Keras libraries and packages
+from keras.models import Sequential
+from keras.layers import Conv2D
+from keras.layers import MaxPooling2D
+from keras.layers import Flatten
+from keras.layers import Dense
+
+
+import os
+script_dir = os.getcwd()
+print(script_dir)
+
+##Convonets Demo
+#http://scs.ryerson.ca/~aharley/vis/conv/flat.html
+
+
+# Initialising the CNN
+classifier = Sequential()
+
+# Step 1 - Convolution
+classifier.add(Conv2D(32, (3, 3), input_shape = (64, 64, 3), activation = 'relu'))
+
+# Step 2 - Pooling
+classifier.add(MaxPooling2D(pool_size = (2, 2)))
+
+# Adding a second convolutional layer
+classifier.add(Conv2D(32, (3, 3), activation = 'relu'))
+classifier.add(MaxPooling2D(pool_size = (2, 2)))
+
+# Step 3 - Flattening
+classifier.add(Flatten())
+
+# Step 4 - Full connection
+classifier.add(Dense(units = 128, activation = 'relu'))
+classifier.add(Dense(units = 5, activation = 'softmax'))
+
+# Compiling the CNN
+classifier.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = ['accuracy'])
+
+# Part 2 - Fitting the CNN to the images
+
+from keras.preprocessing.image import ImageDataGenerator
+
+train_datagen = ImageDataGenerator(rescale = 1./255)
+#                                   shear_range = 0.2,
+#                                   zoom_range = 0.2,
+#                                   horizontal_flip = True)
+
+test_datagen = ImageDataGenerator(rescale = 1./255)
+
+training_set = train_datagen.flow_from_directory('dataset/training_set',
+                                                 target_size = (64, 64),
+                                                 batch_size = 32,
+                                                 class_mode = 'categorical')
+
+test_set = test_datagen.flow_from_directory('dataset/test_set',
+                                            target_size = (64, 64),
+                                            batch_size = 32,
+                                            class_mode = 'categorical')
+
+classifier.fit_generator(training_set,
+                         steps_per_epoch = 60,
+                         epochs = 5,
+                         validation_data = test_set,
+                         validation_steps = 10)
+
+
+model_backup_path = os.path.join(script_dir, 'dataset/convoNets_EOC.h5')
+print(model_backup_path)
+classifier.save(model_backup_path)
+print("Model saved to", model_backup_path)
+print(training_set.class_indices)
+
+##################################################################################################
+##########              Prediction of EOC using Trained ConvNet                    ##############
+##################################################################################################
+
+from keras.models import load_model
+classifier = load_model('dataset/convoNets_EOC.h5')
+import numpy as np
+from keras.preprocessing import image
+#test_image = image.load_img('dataset/single_prediction/arufjv1.jpg', target_size = (64, 64))
+test_image = image.load_img('dataset/single_prediction/adifdV2.jpg', target_size = (64, 64))
+#test_image = image.load_img('dataset/single_prediction/abcv4.jpg', target_size = (64, 64))
+#test_image = image.load_img('dataset/single_prediction/Capture.jpg', target_size = (64, 64))
+#test_image = image.load_img('dataset/single_prediction/v5.jpg', target_size = (64, 64))
+#print(test_image)
+test_image = image.img_to_array(test_image)
+test_image = np.expand_dims(test_image, axis = 0)
+result = classifier.predict(test_image)
+print(result)
+
+
+if result[0][0] == 1:
+    prediction = 'Var1'
+elif result[0][1] == 1:
+    prediction = 'Var2'
+elif result[0][2] == 1:
+    prediction = 'Var3'
+elif result[0][3] == 1:
+    prediction = 'Var4'
+else:
+    prediction = 'Var5'
+    
+print("EOC predicted as:", prediction)
+
+
+
+
+
+
